@@ -8,6 +8,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+
 	"github.com/meltwater/drone-cache/cache"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -84,7 +86,7 @@ func InitializeFileSystemBackend(l log.Logger, c FileSystemConfig, debug bool) (
 	}
 
 	if _, err := os.Stat(c.CacheRoot); err != nil {
-		return nil, fmt.Errorf("make sure volume is mounted, <%s> as cache root %w", c.CacheRoot, err)
+		return nil, fmt.Errorf("make sure volume is mounted, <%s> as cache root %v", c.CacheRoot, err)
 	}
 
 	level.Debug(l).Log("msg", "filesystem backend", "config", fmt.Sprintf("%+v", c))
@@ -122,7 +124,7 @@ func InitializeSFTPBackend(l log.Logger, c SFTPConfig, debug bool) (cache.Backen
 
 	sftpClient, err := sftp.NewClient(sshClient)
 	if err != nil {
-		return nil, fmt.Errorf("unable to connect to ssh with sftp protocol %w", err)
+		return nil, fmt.Errorf("unable to connect to ssh with sftp protocol %v", err)
 	}
 
 	level.Debug(l).Log("msg", "sftp backend", "config", fmt.Sprintf("%+v", c))
@@ -133,7 +135,7 @@ func InitializeSFTPBackend(l log.Logger, c SFTPConfig, debug bool) (cache.Backen
 func getSSHClient(c SFTPConfig) (*ssh.Client, error) {
 	authMethod, err := getAuthMethod(c)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get ssh auth method %w", err)
+		return nil, fmt.Errorf("unable to get ssh auth method %v", err)
 	}
 
 	/* #nosec */
@@ -143,7 +145,7 @@ func getSSHClient(c SFTPConfig) (*ssh.Client, error) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // #nosec just a workaround for now, will fix
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to connect to ssh %w", err)
+		return nil, fmt.Errorf("unable to connect to ssh %v", err)
 	}
 
 	return client, nil
@@ -167,13 +169,38 @@ func getAuthMethod(c SFTPConfig) ([]ssh.AuthMethod, error) {
 func readPublicKeyFile(file string) (ssh.AuthMethod, error) {
 	buffer, err := ioutil.ReadFile(file)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read file <%s> %w", file, err)
+		return nil, fmt.Errorf("unable to read file <%s> %v", file, err)
 	}
 
 	key, err := ssh.ParsePrivateKey(buffer)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse private key %w", err)
+		return nil, fmt.Errorf("unable to parse private key %v", err)
 	}
 
 	return ssh.PublicKeys(key), nil
+}
+
+// OssConfig is a structure to store S3  backend configuration
+type OssConfig struct {
+	Bucket     string
+	Encryption string // if not "", enables server-side encryption. valid values are: AES256, aws:kms
+	Endpoint   string
+	Key        string
+	ACL        string
+
+	Secret string
+}
+
+// InitializeOssBackend creates an Oss backend
+func InitializeOssBackend(l log.Logger, c OssConfig, debug bool) (cache.Backend, error) {
+	ossConf := &oss.Config{
+		Endpoint:        c.Endpoint,
+		AccessKeyID:     c.Key,
+		AccessKeySecret: c.Secret,
+		IsDebug:         debug,
+	}
+
+	level.Debug(l).Log("msg", "oss backend", "config", fmt.Sprintf("%+v", c))
+
+	return newOss(c.Bucket, c.ACL, c.Encryption, ossConf), nil
 }

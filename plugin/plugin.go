@@ -34,6 +34,7 @@ type (
 		Mount []string
 
 		S3         backend.S3Config
+		Oss        backend.OssConfig
 		FileSystem backend.FileSystemConfig
 		SFTP       backend.SFTPConfig
 	}
@@ -73,13 +74,13 @@ func (p *Plugin) Exec() error {
 
 	_, err := cachekey.ParseTemplate(c.CacheKey)
 	if err != nil {
-		return fmt.Errorf("parse, <%s> as cache key template, falling back to default %w", c.CacheKey, err)
+		return fmt.Errorf("parse, <%s> as cache key template, falling back to default %v", c.CacheKey, err)
 	}
 
 	// 2. Initialize backend
 	backend, err := initializeBackend(p.Logger, c)
 	if err != nil {
-		return fmt.Errorf("initialize, <%s> as backend %w", c.Backend, err)
+		return fmt.Errorf("initialize, <%s> as backend %v", c.Backend, err)
 	}
 
 	// 3. Initialize cache
@@ -117,6 +118,9 @@ func initializeBackend(logger log.Logger, c Config) (cache.Backend, error) {
 	case "sftp":
 		level.Warn(logger).Log("msg", "using sftp as backend")
 		return backend.InitializeSFTPBackend(logger, c.SFTP, c.Debug)
+	case "oss":
+		level.Warn(logger).Log("msg", "using oss as backend")
+		return backend.InitializeOssBackend(logger, c.Oss, c.Debug)
 	default:
 		return nil, errors.New("unknown backend")
 	}
@@ -129,12 +133,12 @@ func processRebuild(l log.Logger, c cache.Cache, cacheKeyTmpl string, mountedDir
 
 	for _, mount := range mountedDirs {
 		if _, err := os.Stat(mount); err != nil {
-			return fmt.Errorf("mount <%s>, make sure file or directory exists and readable %w", mount, err)
+			return fmt.Errorf("mount <%s>, make sure file or directory exists and readable %v", mount, err)
 		}
 
 		key, err := cacheKey(l, m, cacheKeyTmpl, mount, branch)
 		if err != nil {
-			return fmt.Errorf("generate cache key %w", err)
+			return fmt.Errorf("generate cache key %v", err)
 		}
 
 		path := filepath.Join(m.Repo.Name, key)
@@ -142,7 +146,7 @@ func processRebuild(l log.Logger, c cache.Cache, cacheKeyTmpl string, mountedDir
 		level.Info(l).Log("msg", "rebuilding cache for directory", "local", mount, "remote", path)
 
 		if err := c.Push(mount, path); err != nil {
-			return fmt.Errorf("upload %w", err)
+			return fmt.Errorf("upload %v", err)
 		}
 	}
 
@@ -159,14 +163,14 @@ func processRestore(l log.Logger, c cache.Cache, cacheKeyTmpl string, mountedDir
 	for _, mount := range mountedDirs {
 		key, err := cacheKey(l, m, cacheKeyTmpl, mount, branch)
 		if err != nil {
-			return fmt.Errorf("generate cache key %w", err)
+			return fmt.Errorf("generate cache key %v", err)
 		}
 
 		path := filepath.Join(m.Repo.Name, key)
 		level.Info(l).Log("msg", "restoring directory", "local", mount, "remote", path)
 
 		if err := c.Pull(path, mount); err != nil {
-			return fmt.Errorf("download %w", err)
+			return fmt.Errorf("download %v", err)
 		}
 	}
 
@@ -192,7 +196,7 @@ func cacheKey(l log.Logger, p metadata.Metadata, cacheKeyTmpl, mount, branch str
 		key, err = cachekey.Hash(mount, branch)
 
 		if err != nil {
-			return "", fmt.Errorf("generate hash key for mounted %w", err)
+			return "", fmt.Errorf("generate hash key for mounted %v", err)
 		}
 	}
 

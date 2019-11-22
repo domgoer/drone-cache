@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	stdlog "log"
 	"os"
 
@@ -434,6 +433,14 @@ func run(c *cli.Context) error {
 				Region:     c.String("region"),
 				Secret:     c.String("secret-key"),
 			},
+			Oss: backend.OssConfig{
+				ACL:        c.String("acl"),
+				Bucket:     c.String("bucket"),
+				Encryption: c.String("encryption"),
+				Endpoint:   c.String("endpoint"),
+				Key:        c.String("access-key"),
+				Secret:     c.String("secret-key"),
+			},
 			SFTP: backend.SFTPConfig{
 				CacheRoot: c.String("sftp-cache-root"),
 				Username:  c.String("sftp-username"),
@@ -460,8 +467,14 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	var e plugin.Error
-	if errors.As(err, &e) {
+	if _ ,ok := err.(plugin.Error); ok  {
+		// If it is an expected error log it, handle it gracefully,
+		level.Error(logger).Log("err", err)
+
+		return nil
+	}
+
+	if _ ,ok := err.(*plugin.Error); ok  {
 		// If it is an expected error log it, handle it gracefully,
 		level.Error(logger).Log("err", err)
 
