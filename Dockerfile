@@ -4,7 +4,7 @@ RUN apk add --update --no-cache ca-certificates tzdata && update-ca-certificates
 RUN echo "[WARNING] Make sure you have run 'goreleaser release', before 'docker build'!"
 ADD ./target/dist /opt/
 
-FROM scratch as runner
+FROM alpine as runner
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
