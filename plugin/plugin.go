@@ -129,14 +129,13 @@ func initializeBackend(logger log.Logger, c Config) (cache.Backend, error) {
 // processRebuild the remote cache from the local environment
 func processRebuild(l log.Logger, c cache.Cache, cacheKeyTmpl string, mountedDirs []string, m metadata.Metadata) error {
 	now := time.Now()
-	branch := m.Commit.Branch
 
 	for _, mount := range mountedDirs {
 		if _, err := os.Stat(mount); err != nil {
 			return fmt.Errorf("mount <%s>, make sure file or directory exists and readable %v", mount, err)
 		}
 
-		key, err := cacheKey(l, m, cacheKeyTmpl, mount, branch)
+		key, err := cacheKey(l, m, cacheKeyTmpl, mount)
 		if err != nil {
 			return fmt.Errorf("generate cache key %v", err)
 		}
@@ -158,10 +157,9 @@ func processRebuild(l log.Logger, c cache.Cache, cacheKeyTmpl string, mountedDir
 // processRestore the local environment from the remote cache
 func processRestore(l log.Logger, c cache.Cache, cacheKeyTmpl string, mountedDirs []string, m metadata.Metadata) error {
 	now := time.Now()
-	branch := m.Commit.Branch
 
 	for _, mount := range mountedDirs {
-		key, err := cacheKey(l, m, cacheKeyTmpl, mount, branch)
+		key, err := cacheKey(l, m, cacheKeyTmpl, mount)
 		if err != nil {
 			return fmt.Errorf("generate cache key %v", err)
 		}
@@ -182,7 +180,7 @@ func processRestore(l log.Logger, c cache.Cache, cacheKeyTmpl string, mountedDir
 // Helpers
 
 // cacheKey generates key from given template as parameter or fallbacks hash
-func cacheKey(l log.Logger, p metadata.Metadata, cacheKeyTmpl, mount, branch string) (string, error) {
+func cacheKey(l log.Logger, p metadata.Metadata, cacheKeyTmpl, mount string) (string, error) {
 	level.Info(l).Log("msg", "using provided cache key template")
 
 	key, err := cachekey.Generate(cacheKeyTmpl, mount, metadata.Metadata{
@@ -193,7 +191,7 @@ func cacheKey(l log.Logger, p metadata.Metadata, cacheKeyTmpl, mount, branch str
 
 	if err != nil {
 		level.Error(l).Log("msg", "falling back to default key", "err", err)
-		key, err = cachekey.Hash(mount, branch)
+		key, err = cachekey.Hash(mount)
 
 		if err != nil {
 			return "", fmt.Errorf("generate hash key for mounted %v", err)
